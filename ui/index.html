@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Buchassistent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.15);
+        }
+        
+        .card h2 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .upload-area {
+            border: 2px dashed #3498db;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            background: rgba(52, 152, 219, 0.05);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+        
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #2980b9;
+            background: rgba(52, 152, 219, 0.1);
+            transform: scale(1.02);
+        }
+        
+        .upload-area.uploading {
+            border-color: #f39c12;
+            background: rgba(243, 156, 18, 0.1);
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e8ed;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+        }
+        
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        button.secondary {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+        }
+        
+        button.danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .chat-section {
+            grid-column: 1 / -1;
+        }
+        
+        .chat-container {
+            height: 500px;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            overflow-y: auto;
+            padding: 1.5rem;
+            background: rgba(248, 249, 250, 0.8);
+            margin-bottom: 1rem;
+            backdrop-filter: blur(5px);
+        }
+        
+        .message {
+            margin-bottom: 1.5rem;
+            padding: 1rem 1.5rem;
+            border-radius: 15px;
+            max-width: 80%;
+            word-wrap: break-word;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.user {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .message.assistant {
+            background: white;
+            color: #2c3e50;
+            margin-right: auto;
+            border: 1px solid #e1e8ed;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .message-meta {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-top: 0.5rem;
+        }
+        
+        .book-list {
+            display: grid;
+            gap: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .book-item {
+            padding: 1.5rem;
+            border: 1px solid #e1e8ed;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.7);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .book-item:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateX(5px);
+        }
+        
+        .book-item h4 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .book-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1rem;
+        }
+        
+        .book-stats {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        
+        .delete-btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+        
+        .status {
+            padding: 12px 16px;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: rgba(39, 174, 96, 0.1);
+            color: #27ae60;
+            border: 1px solid rgba(39, 174, 96, 0.3);
+        }
+        
+        .status.error {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+        }
+        
+        .status.info {
+            background: rgba(52, 152, 219, 0.1);
+            color: #3498db;
+            border: 1px solid rgba(52, 152, 219, 0.3);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .stats-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #3498db;
+            display: block;
+        }
+        
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        
+        .similarity-score {
+            background: rgba(46, 204, 113, 0.1);
+            color: #2ecc71;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .input-row {
+            display: flex;
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .input-row .form-group {
+            flex: 1;
+        }
+        
+        .input-row button {
+            margin-bottom: 0;
+            height: 48px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 RAG Buchassistent</h1>
+            <p>Intelligente Dokumentenanalyse mit KI-Unterstützung</p>
+        </div>
+        
+        <!-- Status Bereich -->
+        <div id="statusArea"></div>
+        
+        <!-- Statistiken -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <span class="stat-number" id="bookCount">0</span>
+                <span class="stat-label">Bücher</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="chunkCount">0</span>
+                <span class="stat-label">Text-Segmente</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number" id="queryCount">0</span>
+                <span class="stat-label">Anfragen</span>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <!-- Upload Sektion -->
+            <div class="card">
+                <h2>📤 Dokument hochladen</h2>
+                <div class="upload-area" id="uploadArea">
+                    <p>📄 PDF-Datei hier hineinziehen oder klicken</p>
+                    <input type="file" id="fileInput" accept=".pdf,.txt" style="display: none;">
+                </div>
+                <div class="form-group">
+                    <label for="bookId">Dokument-ID (optional):</label>
+                    <input type="text" id="bookId" placeholder="Wird automatisch erstellt">
+                </div>
+                <button onclick="uploadBook()" id="uploadBtn">Hochladen</button>
+            </div>
+            
+            <!-- Bücher Sektion -->
+            <div class="card">
+                <h2>📖 Dokumentenbibliothek</h2>
+                <button onclick="loadBooks()" class="secondary">Aktualisieren</button>
+                <div id="bookList" class="book-list"></div>
+            </div>
+        </div>
+        
+        <!-- Chat Sektion -->
+        <div class="card chat-section">
+            <h2>💬 Mit Dokumenten sprechen</h2>
+            <div class="input-row">
+                <div class="form-group">
+                    <label for="selectedBook">Dokument auswählen:</label>
+                    <select id="selectedBook">
+                        <option value="">Zuerst Dokumente laden...</option>
+                    </select>
+                </div>
+                <button onclick="clearChat()" class="secondary">Chat löschen</button>
+            </div>
+            
+            <div id="chatContainer" class="chat-container"></div>
+            
+            <div class="input-row">
+                <div class="form-group">
+                    <textarea id="questionInput" rows="2" placeholder="Stellen Sie eine Frage zu Ihrem Dokument..."></textarea>
+                </div>
+                <button onclick="askQuestion()" id="askBtn">Fragen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:28080';
+        let queryCount = 0;
+        
+        // Beim Laden initialisieren
+        window.addEventListener('load', () => {
+            loadBooks();
+            setupEventListeners();
+        });
+        
+        function setupEventListeners() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+            const questionInput = document.getElementById('questionInput');
+            
+            // Upload Area Events
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    showStatus(`Datei ausgewählt: ${files[0].name}`, 'info');
+                }
+            });
+            
+            // Enter für Fragen
+            questionInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    askQuestion();
+                }
+            });
+        }
+        
+        function showStatus(message, type = 'info') {
+            const statusArea = document.getElementById('statusArea');
+            statusArea.innerHTML = `<div class="status ${type}">${message}</div>`;
+            
+            if (type !== 'error') {
+                setTimeout(() => statusArea.innerHTML = '', 5000);
+            }
+        }
+        
+        async function uploadBook() {
+            const fileInput = document.getElementById('fileInput');
+            const bookIdInput = document.getElementById('bookId');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            if (!fileInput.files[0]) {
+                showStatus('Bitte wählen Sie eine Datei aus', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            if (bookIdInput.value.trim()) {
+                formData.append('book_id', bookIdInput.value.trim());
+            }
+            
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="loading"></span> Wird verarbeitet...';
+            uploadArea.classList.add('uploading');
+            
+            try {
+                const response = await fetch(`${API_BASE}/upload-book`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showStatus(`✅ "${result.book_id}" erfolgreich hochgeladen (${result.chunks_created} Segmente erstellt)`, 'success');
+                    fileInput.value = '';
+                    bookIdInput.value = '';
+                    loadBooks();
+                    updateStats();
+                } else {
+                    showStatus(`❌ Fehler: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+            
+            uploadBtn.disabled = false;
+            uploadBtn.textContent = 'Hochladen';
+            uploadArea.classList.remove('uploading');
+        }
+        
+        async function loadBooks() {
+            const bookList = document.getElementById('bookList');
+            const selectedBook = document.getElementById('selectedBook');
+            
+            try {
+                const response = await fetch(`${API_BASE}/books`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    bookList.innerHTML = '';
+                    selectedBook.innerHTML = '<option value="">Dokument auswählen...</option>';
+                    
+                    if (result.books.length === 0) {
+                        bookList.innerHTML = '<p style="text-align: center; color: #7f8c8d;">Keine Dokumente gefunden</p>';
+                        return;
+                    }
+                    
+                    result.books.forEach(book => {
+                        // Bücherliste
+                        const bookItem = document.createElement('div');
+                        bookItem.className = 'book-item';
+                        bookItem.innerHTML = `
+                            <h4>${book.title}</h4>
+                            <p><strong>ID:</strong> ${book.book_id}</p>
+                            <div class="book-meta">
+                                <div class="book-stats">
+                                    📄 ${book.pages} Seiten • 🔤 ${book.chunks} Segmente<br>
+                                    📅 ${new Date(book.uploaded_at).toLocaleString('de-DE')}
+                                </div>
+                                <button class="delete-btn" onclick="deleteBook('${book.book_id}')">Löschen</button>
+                            </div>
+                        `;
+                        bookList.appendChild(bookItem);
+                        
+                        // Select-Options
+                        const option = document.createElement('option');
+                        option.value = book.book_id;
+                        option.textContent = `${book.title}`;
+                        selectedBook.appendChild(option);
+                    });
+                    
+                    updateStats();
+                } else {
+                    showStatus(`❌ Fehler beim Laden: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function deleteBook(bookId) {
+            if (!confirm(`Dokument "${bookId}" wirklich löschen?`)) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/books/${bookId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showStatus(`✅ "${bookId}" erfolgreich gelöscht`, 'success');
+                    loadBooks();
+                } else {
+                    showStatus(`❌ Fehler: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Verbindungsfehler: ${error.message}`, 'error');
+            }
+        }
+        
+        async function askQuestion() {
+            const selectedBook = document.getElementById('selectedBook');
+            const questionInput = document.getElementById('questionInput');
+            const askBtn = document.getElementById('askBtn');
+            const chatContainer = document.getElementById('chatContainer');
+            
+            if (!selectedBook.value) {
+                showStatus('Bitte wählen Sie zuerst ein Dokument aus', 'error');
+                return;
+            }
+            
+            if (!questionInput.value.trim()) {
+                showStatus('Bitte geben Sie eine Frage ein', 'error');
+                return;
+            }
+            
+            const question = questionInput.value.trim();
+            
+            // User-Message
+            addMessage('user', question);
+            
+            // Loading-Message
+            const loadingId = addMessage('assistant', '<span class="loading"></span> Analysiere Dokument...');
+            
+            askBtn.disabled = true;
+            
+            try {
+                const response = await fetch(`${API_BASE}/ask`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: question,
+                        book_id: selectedBook.value,
+                        max_results: 3
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Loading-Message entfernen
+                removeMessage(loadingId);
+                
+                if (response.ok) {
+                    const sources = result.sources.map(s => 
+                        `<span class="similarity-score">${(s.similarity * 100).toFixed(1)}%</span>`
+                    ).join(' ');
+                    
+                    const answer = `${result.answer}<div class="message-meta">
+                        📊 ${result.context_chunks_used} Segmente • ${sources}
+                    </div>`;
+                    
+                    addMessage('assistant', answer);
+                    questionInput.value = '';
+                    queryCount++;
+                    updateStats();
+                } else {
+                    addMessage('assistant', `❌ Fehler: ${result.detail}`);
+                }
+            } catch (error) {
+                removeMessage(loadingId);
+                addMessage('assistant', `❌ Verbindungsfehler: ${error.message}`);
+            }
+            
+            askBtn.disabled = false;
+        }
+        
+        function addMessage(type, content) {
+            const chatContainer = document.getElementById('chatContainer');
+            const messageId = Date.now();
+            
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            message.id = `msg-${messageId}`;
+            message.innerHTML = content;
+            
+            chatContainer.appendChild(message);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            return messageId;
+        }
+        
+        function removeMessage(messageId) {
+            const message = document.getElementById(`msg-${messageId}`);
+            if (message) message.remove();
+        }
+        
+        function clearChat() {
+            document.getElementById('chatContainer').innerHTML = '';
+        }
+        
+        function updateStats() {
+            const books = document.querySelectorAll('.book-item').length;
+            const chunks = Array.from(document.querySelectorAll('.book-stats'))
+                .reduce((sum, stat) => {
+                    const match = stat.textContent.match(/(\d+) Segmente/);
+                    return sum + (match ? parseInt(match[1]) : 0);
+                }, 0);
+            
+            document.getElementById('bookCount').textContent = books;
+            document.getElementById('chunkCount').textContent = chunks;
+            document.getElementById('queryCount').textContent = queryCount;
+        }
+    </script>
+</body>
+</html>

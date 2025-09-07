@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - models:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  postgres:
+    image: ankane/pgvector:latest
+    ports:
+      - "25432:5432"
+    environment:
+      - POSTGRES_DB=buchplattform
+      - POSTGRES_USER=rag_user
+      - POSTGRES_PASSWORD=rag_password
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag_user -d buchplattform"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  rag-api:
+    build: 
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "28080:8080"
+    # depends_on:
+    #   ollama:
+    #     condition: service_healthy
+    #   postgres:
+    #     condition: service_healthy
+    environment:
+      - OLLAMA_URL=http://ollama:11434
+      - DATABASE_URL=postgresql://rag_user:rag_password@postgres:5432/buchplattform
+    volumes:
+      - ./books:/app/books:ro
+    networks:
+      - rag-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  web-ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    ports:
+      - "28081:80"
+    depends_on:
+      - rag-api
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  pg-data:
+  models:

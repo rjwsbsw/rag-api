@@ -30,6 +30,7 @@ Thumbs.db
 books/
 pg-data/
 models/
+backup/
 *.pdf
 *.txt
 

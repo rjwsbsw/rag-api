@@ -3,7 +3,7 @@
 set -e
 
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M")
-BACKUP_DIR="backup/ollama-backup-$TIMESTAMP"
+BACKUP_DIR="backup/models/ollama-backup-$TIMESTAMP"
 mkdir -p "$BACKUP_DIR"
 
 echo "📝 Saving Modelfile..."

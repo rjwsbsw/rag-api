@@ -248,7 +248,7 @@ async def upload_book(file: UploadFile = File(...), book_id: str = None):
 
             # Format erkennen
             if file.filename.lower().endswith(".pdf"):
-                all_chunks, page_count = chunk_pdf_with_metadata(BytesIO(ile_bytes))
+                all_chunks, page_count = chunk_pdf_with_metadata(BytesIO(file_bytes))
             elif file.filename.lower().endswith(".docx"):
                 all_chunks, page_count = chunk_docx_with_metadata(BytesIO(file_bytes))
             else:
